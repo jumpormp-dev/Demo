@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --font-kanit: "Kanit", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  
+  --color-mea-orange: #904d00;
+  --color-mea-orange-light: #ff8c00;
+  --color-mea-red: #b81120;
+  --color-mea-green: #006e25;
+}
+
+@layer base {
+  body {
+    @apply font-inter bg-[#f8f9fa] text-[#191c1d];
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
