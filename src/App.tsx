@@ -16,7 +16,15 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { onSnapshot, collection, query, orderBy, limit, where, getDocs } from 'firebase/firestore';
 import { ThermalAnalysis } from './lib/gemini';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy_key" });
+const getAi = () => {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === "dummy_key") {
+    console.warn("GEMINI_API_KEY is not set or is dummy. AI features will fail.");
+  }
+  return new GoogleGenAI({ apiKey: key || "dummy_key" });
+};
+
+const ai = getAi();
 
 export interface Asset {
   id: string;
@@ -398,23 +406,35 @@ export default function App() {
         // Use local proxy (for Vercel) or direct URL (for local dev)
         const urls = [
           '/api/proxy-meter', // Vercel proxy
-          'http://unified-iot.mea.or.th:8507/api/ktt/meters' // Direct fallback
+          'https://unified-iot.mea.or.th:8507/api/ktt/meters',
+          'http://unified-iot.mea.or.th:8507/api/ktt/meters'
         ];
         
+        let success = false;
         for (const url of urls) {
           try {
+            console.log(`Attempting to fetch from: ${url}`);
             const response = await fetch(url, {
               signal: controller.signal,
-              mode: 'cors'
+              // Only use cors mode for direct external calls
+              mode: url.startsWith('http') ? 'cors' : 'same-origin'
             });
+            
             if (response.ok) {
               externalData = await response.json();
               console.log(`Fetched Smart Meter data successfully from ${url}`);
+              success = true;
               break;
+            } else {
+              console.warn(`Fetch from ${url} returned status: ${response.status}`);
             }
           } catch (e) {
             console.warn(`Fetch from ${url} failed:`, e);
           }
+        }
+        
+        if (!success) {
+          throw new Error("All sync attempts failed");
         }
         clearTimeout(timeoutId);
       } catch (e) {

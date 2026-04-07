@@ -1,6 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy_key" });
+const getAi = () => {
+  const key = process.env.GEMINI_API_KEY;
+  return new GoogleGenAI({ apiKey: key || "dummy_key" });
+};
+
+const ai = getAi();
 
 export interface ThermalAnalysis {
   maxTemp: number | null;
