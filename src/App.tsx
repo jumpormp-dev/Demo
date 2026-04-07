@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { RiskGauge } from './components/RiskGauge';
@@ -13,10 +13,10 @@ import { calculateRisk, RiskStatus } from './lib/modelLogic';
 import { KTTMap } from './components/KTTMap';
 import { auth, signInWithGoogle, logout, db, saveAsset, saveSurvey, getAssetHistory, deleteAsset } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { onSnapshot, collection, query, orderBy, limit, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { onSnapshot, collection, query, orderBy, limit, where, getDocs } from 'firebase/firestore';
 import { ThermalAnalysis } from './lib/gemini';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy_key" });
 
 export interface Asset {
   id: string;
@@ -177,41 +177,29 @@ export default function App() {
     const performMigrationAndInit = async () => {
       try {
         const snapshot = await getDocs(collection(db, 'assets'));
-        const batch = writeBatch(db);
-        let hasChanges = false;
         
         // 1. Migration: Rename any KTD to KTT in Firestore
         const ktdDocs = snapshot.docs.filter(doc => doc.id.includes('KTD'));
         if (ktdDocs.length > 0) {
           setIsMigrating(true);
-          hasChanges = true;
-          for (const d of ktdDocs) {
-            const data = d.data() as Asset;
+          for (const doc of ktdDocs) {
+            const data = doc.data() as Asset;
             const newId = data.id.replace('KTD', 'KTT');
-            const newAsset = { ...data, id: newId, lastUpdated: new Date().toISOString() };
-            batch.set(doc(db, 'assets', newId), newAsset);
-            batch.delete(doc(db, 'assets', data.id));
+            const newAsset = { ...data, id: newId };
+            await saveAsset(newAsset);
+            await deleteAsset(data.id);
           }
         }
 
         // 2. Initialization: Ensure 158 assets exist
         if (snapshot.size < INITIAL_ASSETS.length) {
           setIsMigrating(true);
-          hasChanges = true;
-          const existingIds = new Set(snapshot.docs.map(d => d.id));
+          const existingIds = new Set(snapshot.docs.map(doc => doc.id));
           for (const asset of INITIAL_ASSETS) {
             if (!existingIds.has(asset.id)) {
-              batch.set(doc(db, 'assets', asset.id), {
-                ...asset,
-                lastUpdated: new Date().toISOString()
-              });
+              await saveAsset(asset);
             }
           }
-        }
-
-        if (hasChanges) {
-          await batch.commit();
-          console.log("Migration/Initialization batch committed successfully");
         }
       } catch (error) {
         console.error("Migration/Init Error:", error);
@@ -400,29 +388,43 @@ export default function App() {
     
     try {
       // Attempt to fetch from MEA Unified IoT (KTT Area)
+      // Note: This may fail due to CORS or Mixed Content (HTTP vs HTTPS)
+      // If it fails, we fallback to the robust simulation as requested
       let externalData: any = null;
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
         
-        const response = await fetch('http://unified-iot.mea.or.th:8507/api/ktt/meters', {
-          signal: controller.signal,
-          mode: 'cors'
-        });
-        clearTimeout(timeoutId);
+        // Use local proxy (for Vercel) or direct URL (for local dev)
+        const urls = [
+          '/api/proxy-meter', // Vercel proxy
+          'http://unified-iot.mea.or.th:8507/api/ktt/meters' // Direct fallback
+        ];
         
-        if (response.ok) {
-          externalData = await response.json();
-          console.log("Fetched Smart Meter data successfully");
+        for (const url of urls) {
+          try {
+            const response = await fetch(url, {
+              signal: controller.signal,
+              mode: 'cors'
+            });
+            if (response.ok) {
+              externalData = await response.json();
+              console.log(`Fetched Smart Meter data successfully from ${url}`);
+              break;
+            }
+          } catch (e) {
+            console.warn(`Fetch from ${url} failed:`, e);
+          }
         }
+        clearTimeout(timeoutId);
       } catch (e) {
         console.warn("Unified IoT fetch failed or timed out, using internal simulation fallback", e);
       }
 
-      const batch = writeBatch(db);
-      const normalizeId = (id: string) => id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().replace('KTD', 'KTT');
-
-      assets.forEach((a) => {
+      const updates = assets.map(async (a) => {
+        // Ensure we map the ID correctly if it comes from external source with different format
+        // The user says smart meter data uses KTT, so we normalize both to compare
+        const normalizeId = (id: string) => id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().replace('KTD', 'KTT');
         const meterData = externalData?.find((m: any) => normalizeId(String(m.id)) === normalizeId(a.id));
         
         const newLoad = meterData ? Number(meterData.load) : Math.random() * 90 + 30;
@@ -447,13 +449,12 @@ export default function App() {
           trips: newTrips,
           status,
           riskScore: probability,
-          planMonth: calculatePlanMonth(status, probability),
-          lastUpdated: new Date().toISOString()
+          planMonth: calculatePlanMonth(status, probability)
         };
-        batch.set(doc(db, 'assets', a.id), updatedAsset);
+        return saveAsset(updatedAsset);
       });
       
-      await batch.commit();
+      await Promise.all(updates);
       setUploadStatus('success');
       setTimeout(() => setUploadStatus('idle'), 3000);
     } catch (error) {
@@ -472,11 +473,10 @@ export default function App() {
     setUploadStatus('uploading');
     
     // Add a small delay to simulate processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
     try {
-      const batch = writeBatch(db);
-      assets.forEach((a) => {
+      const updates = assets.map(async (a) => {
         const { status, probability } = calculateRisk({
           thermal: a.thermal,
           load: a.load,
@@ -492,13 +492,12 @@ export default function App() {
           ...a,
           riskScore: probability,
           status,
-          planMonth: calculatePlanMonth(status, probability),
-          lastUpdated: new Date().toISOString()
+          planMonth: calculatePlanMonth(status, probability)
         };
-        batch.set(doc(db, 'assets', a.id), updatedAsset);
+        return saveAsset(updatedAsset);
       });
       
-      await batch.commit();
+      await Promise.all(updates);
       setUploadStatus('success');
       setTimeout(() => setUploadStatus('idle'), 3000);
     } catch (error) {
