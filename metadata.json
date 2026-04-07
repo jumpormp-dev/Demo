@@ -1,5 +1,7 @@
 {
-  "name": "MEA Smart Plan - Asset Diagnostics",
+  "name": "AI-Predictive Guardian",
   "description": "Industrial Intelligence & Predictive Maintenance Dashboard for MEA",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

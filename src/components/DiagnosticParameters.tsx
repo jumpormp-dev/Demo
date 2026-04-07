@@ -6,43 +6,47 @@ interface DiagnosticParametersProps {
   sound: number;
   load: number;
   trips: number;
+  peakFreq: number;
+  age: number;
+  humidity: number;
   planMonth: string;
+  pmStatus?: 'Pending' | 'In Progress' | 'Completed';
 }
 
-export function DiagnosticParameters({ thermal, sound, load, trips, planMonth }: DiagnosticParametersProps) {
+export function DiagnosticParameters({ thermal, sound, load, trips, peakFreq, age, humidity, planMonth, pmStatus = 'Pending' }: DiagnosticParametersProps) {
   const parameters = [
     {
       icon: Calendar,
       label: 'แผน PM',
       value: planMonth,
-      subValue: 'Next Schedule',
-      progress: planMonth === 'Routine Check' ? 25 : 100,
-      color: 'text-gray-500',
-      bg: 'bg-gray-50',
+      subValue: `Status: ${pmStatus}`,
+      progress: pmStatus === 'Completed' ? 100 : pmStatus === 'In Progress' ? 50 : 10,
+      color: pmStatus === 'Completed' ? 'text-mea-green' : pmStatus === 'In Progress' ? 'text-blue-500' : 'text-gray-500',
+      bg: pmStatus === 'Completed' ? 'bg-green-50' : pmStatus === 'In Progress' ? 'bg-blue-50' : 'bg-gray-50',
     },
     {
       icon: Thermometer,
-      label: 'ความร้อน',
-      value: `${thermal.toFixed(1)} °C`,
-      subValue: thermal > 70 ? 'Above Threshold' : 'Normal Range',
-      color: thermal > 70 ? 'text-mea-red' : 'text-gray-500',
-      bg: thermal > 70 ? 'bg-red-50' : 'bg-gray-50',
+      label: 'ความร้อน / ความชื้น',
+      value: `${thermal.toFixed(1)} °C / ${humidity.toFixed(0)}%`,
+      subValue: thermal > 85 ? 'Critical Heat' : 'Normal Range',
+      color: thermal > 85 ? 'text-mea-red' : 'text-gray-500',
+      bg: thermal > 85 ? 'bg-red-50' : 'bg-gray-50',
     },
     {
       icon: Volume2,
-      label: 'เสียง',
-      value: `${sound.toFixed(0)} dB`,
-      subValue: sound > 80 ? 'Peak Operation' : 'Normal Range',
-      color: sound > 80 ? 'text-mea-red' : 'text-gray-500',
-      bg: sound > 80 ? 'bg-red-50' : 'bg-gray-50',
+      label: 'เสียง / ความถี่',
+      value: `${sound.toFixed(0)} dB / ${Math.round(peakFreq / 1000)} kHz`,
+      subValue: sound > 82 ? 'Acoustic Warning' : 'Normal Range',
+      color: sound > 82 ? 'text-mea-red' : 'text-gray-500',
+      bg: sound > 82 ? 'bg-red-50' : 'bg-gray-50',
     },
     {
       icon: TrendingDown,
       label: 'โหลด / ทริป',
       value: `${load.toFixed(1)}% / ${trips}`,
       subValue: `Trips: ${trips} ครั้ง`,
-      color: 'text-gray-500',
-      bg: 'bg-gray-50',
+      color: load > 105 ? 'text-mea-red' : 'text-gray-500',
+      bg: load > 105 ? 'bg-red-50' : 'bg-gray-50',
     },
   ];
 

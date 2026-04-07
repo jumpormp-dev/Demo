@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: assets
+    // Document ID: assetId (e.g., TR-KTT-001)
+    // Fields:
+    //   - id: string (required)
+    //   - feeder: string (required)
+    //   - load: number
+    //   - voltage: number
+    //   - trips: number
+    //   - sound: number
+    //   - thermal: number
+    //   - peakFreq: number
+    //   - age: number
+    //   - humidity: number
+    //   - status: string (Healthy, Warning, Critical)
+    //   - riskScore: number
+    //   - planMonth: string
+    //   - image: string (base64)
+    //   - lat: number
+    //   - lng: number
+    //   - lastUpdated: string (ISO 8601)
+    //
+    // Collection: surveys
+    // Document ID: auto-generated
+    // Fields:
+    //   - assetId: string (required)
+    //   - sound: number
+    //   - thermal: number
+    //   - acousticImage: string (base64)
+    //   - thermalImage: string (base64)
+    //   - riskScore: number
+    //   - status: string
+    //   - analysis: string
+    //   - timestamp: string (ISO 8601)
+    //   - authorEmail: string
+    //   - thermalPoints: list of maps
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "jumporm.p@gmail.com" && isEmailVerified());
+    }
+
+    function isValidAsset(data) {
+      return data.keys().hasAll(['id', 'feeder', 'status', 'riskScore']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.feeder is string && data.feeder.size() > 0 && data.feeder.size() < 100 &&
+             data.status in ['Healthy', 'Warning', 'Critical'] &&
+             data.riskScore is number && data.riskScore >= 0 && data.riskScore <= 100 &&
+             (!('pmStatus' in data) || data.pmStatus in ['Pending', 'In Progress', 'Completed']);
+    }
+
+    function isValidSurvey(data) {
+      return data.keys().hasAll(['assetId', 'timestamp']) &&
+             data.assetId is string && data.assetId.size() > 0 &&
+             data.timestamp is string &&
+             (!('sound' in data) || data.sound is number) &&
+             (!('thermal' in data) || data.thermal is number);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /assets/{assetId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated();
+      // Allow create and update for authenticated users
+      allow create, update: if isAuthenticated() && isValidAsset(request.resource.data);
+      // Allow delete for admin
+      allow delete: if isAdmin();
+    }
+
+    match /surveys/{surveyId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated();
+      // Allow create for authenticated users
+      allow create: if isAuthenticated() && isValidSurvey(request.resource.data);
+      // No updates or deletes for survey history to maintain integrity
+      allow update, delete: if isAdmin();
+    }
+  }
+}

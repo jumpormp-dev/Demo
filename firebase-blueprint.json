@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Asset": {
+      "title": "Asset",
+      "description": "Transformer asset details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Asset ID" },
+        "feeder": { "type": "string", "description": "Feeder ID" },
+        "load": { "type": "number", "description": "Current load percentage" },
+        "voltage": { "type": "number", "description": "Voltage level" },
+        "trips": { "type": "integer", "description": "Number of trips" },
+        "sound": { "type": "number", "description": "Sound level in dB" },
+        "thermal": { "type": "number", "description": "Temperature in Celsius" },
+        "peakFreq": { "type": "number", "description": "Peak frequency" },
+        "age": { "type": "integer", "description": "Asset age in years" },
+        "humidity": { "type": "number", "description": "Humidity percentage" },
+        "status": { "type": "string", "enum": ["Healthy", "Warning", "Critical"] },
+        "riskScore": { "type": "number", "description": "Calculated risk score" },
+        "planMonth": { "type": "string", "description": "Maintenance plan month" },
+        "image": { "type": "string", "description": "Base64 image data" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "feeder", "status", "riskScore"]
+    },
+    "SurveyHistory": {
+      "title": "SurveyHistory",
+      "description": "Historical survey records for an asset",
+      "type": "object",
+      "properties": {
+        "assetId": { "type": "string" },
+        "sound": { "type": "number" },
+        "thermal": { "type": "number" },
+        "acousticImage": { "type": "string" },
+        "thermalImage": { "type": "string" },
+        "riskScore": { "type": "number" },
+        "status": { "type": "string" },
+        "analysis": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "authorEmail": { "type": "string" },
+        "thermalPoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "temp": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["assetId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Current state of each transformer asset"
+    },
+    "/surveys/{surveyId}": {
+      "schema": "SurveyHistory",
+      "description": "Log of all surveys performed"
+    }
+  }
+}
