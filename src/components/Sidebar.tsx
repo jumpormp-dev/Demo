@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { 
   LayoutDashboard,
   Upload, 
@@ -31,7 +31,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-export function Sidebar({ onSync, onBulkAnalyze, isAnalyzing, activeModule, onModuleChange, onSurveyClick, onLogout, assets, isOpen, onClose }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ onSync, onBulkAnalyze, isAnalyzing, activeModule, onModuleChange, onSurveyClick, onLogout, assets, isOpen, onClose }: SidebarProps) {
   const pmProgress = Math.round((assets.filter(a => a.pmStatus === 'Completed').length / assets.length) * 100) || 0;
 
   const menuItems = [
@@ -144,4 +144,4 @@ export function Sidebar({ onSync, onBulkAnalyze, isAnalyzing, activeModule, onMo
     </aside>
     </>
   );
-}
+});

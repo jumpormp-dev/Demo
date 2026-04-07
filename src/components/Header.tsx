@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Bell, Settings, Menu, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -11,7 +11,7 @@ interface HeaderProps {
   user?: { photoURL?: string | null; displayName?: string | null };
 }
 
-export function Header({ activeTab, onTabChange, onModuleChange, isMigrating, onMenuClick, user }: HeaderProps) {
+export const Header = memo(function Header({ activeTab, onTabChange, onModuleChange, isMigrating, onMenuClick, user }: HeaderProps) {
   const handleTabClick = (tab: 'overview' | 'diagnostics' | 'plan' | 'map') => {
     onTabChange(tab);
     if (onModuleChange) {
@@ -108,4 +108,4 @@ export function Header({ activeTab, onTabChange, onModuleChange, isMigrating, on
       </div>
     </header>
   );
-}
+});

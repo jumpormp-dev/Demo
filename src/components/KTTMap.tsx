@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, memo } from 'react';
 import { RiskStatus } from '../lib/modelLogic';
 import { cn } from '../lib/utils';
 import { Maximize2, Minimize2, MousePointer2, Info } from 'lucide-react';
@@ -19,7 +19,7 @@ interface KTTMapProps {
   gisLayers?: string[];
 }
 
-export function KTTMap({ points, onPointClick, mode = 'points' }: KTTMapProps) {
+export const KTTMap = memo(function KTTMap({ points, onPointClick, mode = 'points' }: KTTMapProps) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -247,4 +247,4 @@ export function KTTMap({ points, onPointClick, mode = 'points' }: KTTMapProps) {
       </div>
     </div>
   );
-}
+});
